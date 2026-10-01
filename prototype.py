@@ -386,11 +386,10 @@ def formulaire_connexion():
             session.execute(
                 text("""
                         INSERT INTO boutique (nom, admin, description)
-                        VALUES (:nom_boutique, :admin, :description)
+                        VALUES (:nom_boutique, LAST_INSERT_ID(), :description)
                     """),
                 {
                     "nom_boutique": nom_boutique,
-                    "admin": nom,
                     "description": description,
                 },
             )
@@ -532,7 +531,6 @@ def formulaire_connexion():
                     date = date_produit.get().strip()
                     description = description_produit.get(
                         "1.0", "end-1c").strip()
-                    boutique = nom_boutique_revendeur.get().strip()
 
                     if not nom or not Type or not quantite or not prix or not photo or not date or not description:
                         messagebox.showwarning(
@@ -543,7 +541,7 @@ def formulaire_connexion():
                         session.execute(
                             text("""
                                 INSERT INTO produit (photo, nom, type, stock, prix, date_de_peremption, description, boutique)
-                                VALUES (:photo, :nom,:type, :stock, :prix, :date_de_peremption, :description, :boutique)
+                                VALUES (:photo, :nom,:type, :stock, :prix, :date_de_peremption, :description, LAST_INSERT_ID())
                             """),
                             {
                                 "photo": photo,
@@ -553,7 +551,6 @@ def formulaire_connexion():
                                 "prix": prix,
                                 "date_de_peremption": date,
                                 "description": description,
-                                "boutique": boutique,
                             },
                         )
                         session.commit()
