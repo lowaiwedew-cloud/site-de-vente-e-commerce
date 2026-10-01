@@ -40,7 +40,7 @@ def commander():
 def charger_produit(conteneur, boutique=None):
     session = session_factory()
     try:
-        produits = """SELECT photo, nom, stock, prix, date_de_peremption, description, boutique
+        produits = """SELECT photo, nom, stock, prix, date_de_peremption, description, id_boutique
                      FROM produit"""
         params = {}
         if boutique:
@@ -372,21 +372,20 @@ def formulaire_connexion():
         try:
             session.execute(
                 text("""
-                        INSERT INTO vendeur (nom, prénom, mots_de_passe, num_telephone, boutique)
-                        VALUES (:nom, :prenom, :mot_de_passe, :numero_telephone, :nom_boutique)
+                        INSERT INTO vendeur (nom, prénom, mots_de_passe, num_telephone)
+                        VALUES (:nom, :prenom, :mot_de_passe, :numero_telephone)
                     """),
                 {
                     "nom": nom,
                     "prenom": prenom,
                     "mot_de_passe": mot_de_passe,
                     "numero_telephone": numero_telephone,
-                    "nom_boutique": nom_boutique,
                 },
             )
             session.execute(
                 text("""
-                        INSERT INTO boutique (nom, admin, description)
-                        VALUES (:nom_boutique, LAST_INSERT_ID(), :description)
+                        INSERT INTO boutique (nom, description)
+                        VALUES (:nom_boutique, :description)
                     """),
                 {
                     "nom_boutique": nom_boutique,
@@ -540,8 +539,8 @@ def formulaire_connexion():
                     try:
                         session.execute(
                             text("""
-                                INSERT INTO produit (photo, nom, type, stock, prix, date_de_peremption, description, boutique)
-                                VALUES (:photo, :nom,:type, :stock, :prix, :date_de_peremption, :description, LAST_INSERT_ID())
+                                INSERT INTO produit (photo, nom, type, stock, prix, date_de_peremption, description)
+                                VALUES (:photo, :nom,:type, :stock, :prix, :date_de_peremption, :description)
                             """),
                             {
                                 "photo": photo,
@@ -746,7 +745,7 @@ def formulaire_connexion():
                 {"nom": nom, "prenom": prenom, "mots_de_passe": mots_de_passe},
             ).fetchone()
             if acheteur:
-                fenetre_connexion.withdraw()
+                fenetre_connexion.destroy()
                 espace_client()
                 return
 
@@ -758,13 +757,12 @@ def formulaire_connexion():
                 {"nom": nom, "prenom": prenom, "mots_de_passe": mots_de_passe},
             ).fetchone()
             if vendeur:
-                fenetre_connexion.withdraw()
+                fenetre_connexion.destroy()
                 espace_revendeur()
-                espace_revendeur(vendeur[0])
                 return
 
             messagebox.showerror(
-                "Erreur", "Nom, prénom ou mot de passe incorrec ")
+                "Erreur", "Nom, prénom ou mot de passe incorrect")
         except Exception as e:
             messagebox.showerror(
                 "Erreur", f"Impossible de vérifier le compte {e}")
@@ -817,10 +815,10 @@ body.pack(fill="both", expand=True)
 # onglets
 
 onglets = ctk.CTkTabview(body,
-                         fg_color="black", anchor="w", corner_radius=60, segmented_button_fg_color="#2a9d8f", segmented_button_unselected_color="#2a9d8f", text_color="#242a34")
-onglets.pack(fill="both", expand=True, padx=20, pady=20)
+                         fg_color="black", anchor="w", corner_radius=40, segmented_button_fg_color="white", segmented_button_unselected_color="#2a9d8f", text_color="black")
+onglets.pack(fill="both", expand=True, padx=10, pady=10)
 onglets._segmented_button.configure(
-    width=150, height=40, font=("Times New Roman", 20))
+    width=150, height=60, font=("Times New Roman", 20))
 
 # onglets1
 
