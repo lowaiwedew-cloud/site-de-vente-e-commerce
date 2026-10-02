@@ -37,20 +37,52 @@ def commander():
     d = 1
 
 
-def charger_produit(conteneur, boutique=None):
+def appliquer_filtre(onglet, categorie):
+    cadre = ctk.CTkScrollableFrame(onglet, fg_color="black")
+    cadre.pack(fill="both", expand=True, pady=10, padx=10)
+    charger_produit(cadre, categorie=categorie)
+
+
+def appliquer_filtre_boutique(onglet, id_boutique):
+    cadre = ctk.CTkScrollableFrame(onglet, fg_color="black")
+    cadre.pack(fill="both", expand=True, pady=10, padx=10)
+    charger_produit(cadre, id_boutique=id_boutique)
+
+
+def charger_produit(conteneur, id_boutique=None, categorie=None):
     session = session_factory()
+
     try:
-        produits = """SELECT photo, nom, stock, prix, date_de_peremption, description, id_boutique
-                     FROM produit"""
+        requete = """
+            SELECT photo, nom, stock, prix, date_de_peremption,
+                   description, id_boutique
+            FROM produit
+        """
+
+        id_boutique = id_boutique
+
+        filtre = []
         params = {}
-        if boutique:
-            produits += " WHERE boutique = :boutique"
-            params["boutique"] = boutique
-        produits = session.execute(text(produits), params).fetchall()
+
+        if id_boutique is not None:
+            filtre.append("id_boutique = :boutique")
+            params["boutique"] = id_boutique
+
+        if categorie is not None:
+            filtre.append("type = :categorie")
+            params["categorie"] = categorie
+
+        if filtre:
+            requete += " WHERE " + " AND ".join(filtre)
+
+        produits = session.execute(text(requete), params).fetchall()
+
     except Exception as e:
         messagebox.showerror(
-            "Erreur", f"Impossible de charger les produits : {e}")
+            "Erreur", f"Impossible de charger les produits : {e}"
+        )
         return
+
     finally:
         session.close()
 
@@ -59,39 +91,43 @@ def charger_produit(conteneur, boutique=None):
         return
 
     def afficher_produit(produit):
-        photo, nom, stock, prix, date_de_peremption, description, boutique = produit
+        photo, nom, stock, prix, date_expiration, description, id_boutique = produit
+
         details = ctk.CTkToplevel(fenetre)
         details.title(nom)
         details.geometry("420x520")
         details.transient(fenetre)
 
         try:
-            image = ctk.CTkImage(
-                light_image=Image.open(photo), size=(220, 180))
-            image_label = ctk.CTkLabel(details, text="", image=image)
-            image_label.image = image
-            image_label.pack(pady=(20, 10))
+            image_details = ctk.CTkImage(
+                light_image=Image.open(photo),
+                size=(220, 180)
+            )
+            image_label_details = ctk.CTkLabel(
+                details, text="", image=image_details
+            )
+            image_label_details.image = image_details
+            image_label_details.pack(pady=(20, 10))
         except (OSError, TypeError):
             pass
 
         ctk.CTkLabel(details, text=nom, font=(
             "Times New Roman", 22, "bold")).pack(pady=5)
-        ctk.CTkLabel(details, text=f"Prix {prix} FCFA").pack(pady=5)
-        ctk.CTkLabel(details, text=f"Stock {stock}").pack(pady=5)
+        ctk.CTkLabel(details, text=f"Prix : {prix} FCFA").pack(pady=5)
+        ctk.CTkLabel(details, text=f"Stock : {stock}").pack(pady=5)
         ctk.CTkLabel(
-            details, text=f"Date d'expiration {date_de_peremption}").pack(pady=5)
-        ctk.CTkLabel(details, text=f"Boutique {boutique}").pack(pady=5)
+            details, text=f"Date d'expiration  {date_expiration}").pack(pady=5)
         ctk.CTkLabel(details, text=description or "Aucune description disponible.",
                      wraplength=360, justify="left").pack(padx=10, pady=10)
-        button = customtkinter.CTkButton(
-            details, text="Commander", command=commander)
-        button.pack(side="top", padx=20, pady=20)
-        button.configure(width=200, height=60,
-                         fg_color="Green", corner_radius=10)
+        button = ctk.CTkButton(details, text="Commander", command=commander,
+                               width=200, height=60, fg_color="Green", corner_radius=10)
+        button.pack(padx=20, pady=20)
 
-    colonne = 6
+    nombre_colonnes = 6
 
-    for i, (photo, nom, stock, prix, date_de_peremption, description, boutique) in enumerate(produits):
+    for i, produit in enumerate(produits):
+        photo, nom, stock, prix, date_expiration, description, id_boutique = produit
+
         try:
             image = ctk.CTkImage(
                 light_image=Image.open(photo), size=(130, 120))
@@ -100,17 +136,33 @@ def charger_produit(conteneur, boutique=None):
                 "Image invalide", f"Impossible d'ouvrir l'image de {nom} : {e}")
             continue
 
-        cellule = ctk.CTkFrame(
-            conteneur, width=230, height=300, fg_color="transparent")
-        cellule.grid(row=i // colonne, column=i % colonne, padx=5, pady=5)
+        cellule = ctk.CTkFrame(conteneur, width=230,
+                               height=300, fg_color="transparent", corner_radius=30)
+        cellule.grid(row=i // nombre_colonnes, column=i %
+                     nombre_colonnes, padx=5, pady=5)
         cellule.grid_propagate(False)
-        carte = ctk.CTkButton(cellule, text=f"{nom} \n {prix} FCFA \n Stock {stock}", font=("Times new roman", 20), image=image, compound="top", width=210, height=280, corner_radius=30, fg_color="white",
-                              hover_color="white", text_color="#242a34", command=lambda produit=(photo, nom, stock, prix, date_de_peremption, description, boutique): afficher_produit(produit),)
-        carte.place(relx=0.5, rely=0.5, anchor="center")
-        carte.bind("<Enter>", lambda event,
-                   bouton=carte: bouton.configure(width=200, height=250))
-        carte.bind("<Leave>", lambda event,
-                   bouton=carte: bouton.configure(width=210, height=250))
+        carte = ctk.CTkFrame(cellule, width=210, height=280,
+                             fg_color="white", corner_radius=30)
+        carte.place(relx=0, rely=1, anchor="sw", x=10, y=-10)
+        carte.pack_propagate(False)
+        image_label = ctk.CTkLabel(
+            carte, text="", image=image, fg_color="white")
+        image_label.image = image
+        image_label.pack(pady=(5, 5))
+
+        ctk.CTkLabel(carte, text=nom, font=("Times New Roman", 18),
+                     fg_color="blue", corner_radius=20).pack(anchor="w", pady=3, padx=10)
+        ctk.CTkLabel(carte, text=f"Stock  {stock}", font=(
+            "Times New Roman", 18), fg_color="green", corner_radius=20).pack(anchor="w", pady=3, padx=10)
+        ctk.CTkLabel(carte, fg_color="red", text=f"Prix {prix} FCFA", font=(
+            "Times New Roman", 18), corner_radius=20).pack(anchor="w", pady=3, padx=10)
+
+        def ouvrir_details(event=None, p=produit):
+            afficher_produit(p)
+
+        for widget in (carte, *carte.winfo_children()):
+            widget.bind("<Button-1>", ouvrir_details)
+
         carte.image = image
 
 
@@ -125,7 +177,13 @@ def formulaire_connexion():
     fenetre_connexion.title("Connexion")
     fenetre_connexion.geometry(f"{largeur}x{hauteur}+{x}+{y}")
     fenetre_connexion.configure(bg="#17324d")
+    # choix d'onglets
 
+    tabview = ctk.CTkTabview(fenetre_connexion, corner_radius=30, segmented_button_fg_color="black",
+                             segmented_button_unselected_color="black", text_color="white", fg_color="black", border_width=10)
+    tabview.pack(fill="y", expand=False, padx=20, pady=30)
+
+    # COMPTE CLIENT
     def annuler():
         fenetre_connexion.update_idletasks()
         largeur = fenetre_connexion.winfo_width()
@@ -135,40 +193,6 @@ def formulaire_connexion():
         fenetre.geometry(f"{largeur}x{hauteur}+{x}+{y}")
         fenetre.deiconify()
         fenetre_connexion.destroy()
-
-    # choix d'onglets
-
-    tabview = ctk.CTkTabview(fenetre_connexion, corner_radius=50, segmented_button_fg_color="black",
-                             segmented_button_unselected_color="black", text_color="#242a34", fg_color="black", border_width=10)
-    tabview.pack(fill="y", expand=False, padx=20, pady=30)
-
-    # COMPTE CLIENT
-
-    tabview.add("Se connecter en tant que \n client")
-    nom_client_label = customtkinter.CTkLabel(tabview.tab(
-        "Se connecter en tant que \n client"), text="Nom")
-    nom_client_label.pack(pady=2)
-    nom_client = customtkinter.CTkEntry(tabview.tab(
-        "Se connecter en tant que \n client"), width=200, height=40)
-    nom_client.pack(pady=2)
-    prénom_client_label = customtkinter.CTkLabel(tabview.tab(
-        "Se connecter en tant que \n client"), text="prénom")
-    prénom_client_label.pack(pady=2)
-    prénom_client = customtkinter.CTkEntry(tabview.tab(
-        "Se connecter en tant que \n client"), width=200, height=40)
-    prénom_client.pack(pady=2)
-    mots_de_passe_client_label = customtkinter.CTkLabel(tabview.tab(
-        "Se connecter en tant que \n client"), text="Mots de passe")
-    mots_de_passe_client_label.pack(pady=2)
-    mots_de_passe_client = customtkinter.CTkEntry(tabview.tab(
-        "Se connecter en tant que \n client"), width=200, height=40)
-    mots_de_passe_client.pack(pady=2)
-    num_téléphone_client_label = customtkinter.CTkLabel(tabview.tab(
-        "Se connecter en tant que \n client"), text="Numéro de téléphone")
-    num_téléphone_client_label.pack(pady=2)
-    num_téléphone_client = customtkinter.CTkEntry(tabview.tab(
-        "Se connecter en tant que \n client"), width=200, height=40)
-    num_téléphone_client.pack(pady=2)
 
     def valider_connexion_client():
         nom_client = nom_client.get().strip()
@@ -202,6 +226,43 @@ def formulaire_connexion():
                 "erreur", f"impossible d'ajouter le compte : {e}")
         finally:
             session.close()
+
+    tabview.add("Se connecter en tant que \n client")
+    nom_client_label = customtkinter.CTkLabel(tabview.tab(
+        "Se connecter en tant que \n client"), text="Nom")
+    nom_client_label.pack(pady=2)
+    nom_client = customtkinter.CTkEntry(tabview.tab(
+        "Se connecter en tant que \n client"), width=200, height=40)
+    nom_client.pack(pady=2)
+    prénom_client_label = customtkinter.CTkLabel(tabview.tab(
+        "Se connecter en tant que \n client"), text="prénom")
+    prénom_client_label.pack(pady=2)
+    prénom_client = customtkinter.CTkEntry(tabview.tab(
+        "Se connecter en tant que \n client"), width=200, height=40)
+    prénom_client.pack(pady=2)
+    mots_de_passe_client_label = customtkinter.CTkLabel(tabview.tab(
+        "Se connecter en tant que \n client"), text="Mots de passe")
+    mots_de_passe_client_label.pack(pady=2)
+    mots_de_passe_client = customtkinter.CTkEntry(tabview.tab(
+        "Se connecter en tant que \n client"), width=200, height=40)
+    mots_de_passe_client.pack(pady=2)
+    num_téléphone_client_label = customtkinter.CTkLabel(tabview.tab(
+        "Se connecter en tant que \n client"), text="Numéro de téléphone")
+    num_téléphone_client_label.pack(pady=2)
+    num_téléphone_client = customtkinter.CTkEntry(tabview.tab(
+        "Se connecter en tant que \n client"), width=200, height=40)
+    num_téléphone_client.pack(pady=2)
+    # BOUTTON CLIENTS
+    button = customtkinter.CTkButton(
+        tabview.tab("Se connecter en tant que \n client"), text="Créer un compte", command=valider_connexion_client)
+    button.pack(side="right", padx=20, pady=20)
+    button.configure(width=200, height=60,
+                     fg_color="#2872a1", corner_radius=10)
+    button = customtkinter.CTkButton(
+        tabview.tab("Se connecter en tant que \n client"), text="Annuler", command=annuler)
+    button.pack(side="left", padx=20, pady=20)
+    button.configure(width=200, height=60,
+                     fg_color="#fb3640", corner_radius=10)
 
     def espace_client():
         fenetre_connexion.update_idlettasks()
@@ -303,58 +364,7 @@ def formulaire_connexion():
 
         onglets.set("Acceuil")
 
-    # BOUTTON CLIENTS
-
-    button = customtkinter.CTkButton(
-        tabview.tab("Se connecter en tant que \n client"), text="Créer un compte", command=valider_connexion_client)
-    button.pack(side="right", padx=20, pady=20)
-    button.configure(width=200, height=60,
-                     fg_color="#2872a1", corner_radius=10)
-    button = customtkinter.CTkButton(
-        tabview.tab("Se connecter en tant que \n client"), text="Annuler", command=annuler)
-    button.pack(side="left", padx=20, pady=20)
-    button.configure(width=200, height=60,
-                     fg_color="#fb3640", corner_radius=10)
-
     # COMPTE REVENDEUR
-
-    tabview.add("Se connecter en tant que \n revendeur")
-    nom_revendeur_label = customtkinter.CTkLabel(
-        tabview.tab("Se connecter en tant que \n revendeur"), text="Nom")
-    nom_revendeur_label.pack(pady=2)
-    nom_revendeur = customtkinter.CTkEntry(tabview.tab(
-        "Se connecter en tant que \n revendeur"), width=200, height=40)
-    nom_revendeur.pack(pady=2)
-    prénom_revendeur_label = customtkinter.CTkLabel(tabview.tab(
-        "Se connecter en tant que \n revendeur"), text="Prénom")
-    prénom_revendeur_label.pack(pady=2)
-    prénom_revendeur = customtkinter.CTkEntry(tabview.tab(
-        "Se connecter en tant que \n revendeur"), width=200, height=40)
-    prénom_revendeur.pack(pady=2)
-    mots_de_passe_revendeur_label = customtkinter.CTkLabel(
-        tabview.tab("Se connecter en tant que \n revendeur"), text="Mots_de_passe")
-    mots_de_passe_revendeur_label.pack(pady=2)
-    mots_de_passe_revendeur = customtkinter.CTkEntry(tabview.tab(
-        "Se connecter en tant que \n revendeur"), width=200, height=40)
-    mots_de_passe_revendeur.pack(pady=2)
-    num_téléphone_revendeur_label = customtkinter.CTkLabel(
-        tabview.tab("Se connecter en tant que \n revendeur"), text="Numéro de téléphone")
-    num_téléphone_revendeur_label.pack(pady=2)
-    num_téléphone_revendeur = customtkinter.CTkEntry(tabview.tab(
-        "Se connecter en tant que \n revendeur"), width=200, height=40)
-    num_téléphone_revendeur.pack(pady=2)
-    nom_boutique_revendeur_label = customtkinter.CTkLabel(
-        tabview.tab("Se connecter en tant que \n revendeur"), text="Nom de la boutique")
-    nom_boutique_revendeur_label.pack(pady=2)
-    nom_boutique_revendeur = customtkinter.CTkEntry(tabview.tab(
-        "Se connecter en tant que \n revendeur"), width=200, height=40)
-    nom_boutique_revendeur.pack(pady=2)
-    textbox_label = customtkinter.CTkLabel(tabview.tab(
-        "Se connecter en tant que \n revendeur"), text="Veuillez d'écrire votre boutique")
-    textbox_label.pack(pady=2)
-    textbox = customtkinter.CTkTextbox(tabview.tab(
-        "Se connecter en tant que \n revendeur"), height=100)
-    textbox.pack(pady=2)
 
     def valider_connexion_revendeur():
         nom = nom_revendeur.get().strip()
@@ -384,8 +394,8 @@ def formulaire_connexion():
             )
             session.execute(
                 text("""
-                        INSERT INTO boutique (nom, description)
-                        VALUES (:nom_boutique, :description)
+                        INSERT INTO boutique (nom, description,id_vendeur)
+                        VALUES (:nom_boutique, :description, LAST_INSERT_ID())
                     """),
                 {
                     "nom_boutique": nom_boutique,
@@ -405,18 +415,17 @@ def formulaire_connexion():
         finally:
             session.close()
 
-    def espace_revendeur(nom_boutique=None):
+    def espace_revendeur(nom_boutique=None, id_boutique=None):
         fenetre_connexion.update_idletasks()
         largeur = fenetre_connexion.winfo_width()
         hauteur = fenetre_connexion.winfo_height()
+        fenetre_connexion.withdraw()
         x = fenetre_connexion.winfo_x()
         y = fenetre_connexion.winfo_y()
         espace_revendeur = tk.Toplevel(fenetre)
         espace_revendeur.title("Espace revendeur")
         espace_revendeur.geometry(f"{largeur}x{hauteur}+{x}+{y}")
         espace_revendeur.configure(bg="#17324d")
-
-        nom_de_boutique = nom_boutique or nom_boutique_revendeur.get().strip()
 
         def gestion_boutique():
             espace_revendeur.update_idletasks()
@@ -451,6 +460,48 @@ def formulaire_connexion():
                     gestion_boutique.geometry(f"{largeur}x{hauteur}+{x}+{y}")
                     gestion_boutique.deiconify()
                     fenetre_produit.destroy()
+
+                def ajouter_produit():
+                    photo = ajouter_image_label.get()
+                    nom = nom_produit.get().strip()
+                    Type = combobox.get().strip()
+                    quantite = qte_produit.get().strip()
+                    prix = prix_produit.get().strip()
+                    date = date_produit.get().strip()
+                    description = description_produit.get(
+                        "1.0", "end-1c").strip()
+
+                    if not nom or not Type or not quantite or not prix or not photo or not date or not description:
+                        messagebox.showwarning(
+                            "Erreur", "Veuillez renseignez toutes les information du produit")
+                        return
+                    session = session_factory()
+                    try:
+                        session.execute(
+                            text("""
+                                INSERT INTO produit (photo, nom, type, stock, prix, date_de_peremption, description,id_boutique)
+                                VALUES (:photo, :nom,:type, :stock, :prix, :date_de_peremption, :description,LAST_INSERT_ID())
+                            """),
+                            {
+                                "photo": photo,
+                                "nom": nom,
+                                "type": Type,
+                                "stock": quantite,
+                                "prix": prix,
+                                "date_de_peremption": date,
+                                "description": description,
+                            },
+                        )
+                        session.commit()
+                        messagebox.showinfo(
+                            "Produit ajouté", f"{nom} a été ajouté à la boutique")
+                        revenir()
+                    except Exception as e:
+                        session.rollback()
+                        messagebox.showerror(
+                            "Erreur", f"Impossible d'ajouter le produit  {e}")
+                    finally:
+                        session.close()
 
                 formulaire_produit = ctk.CTkFrame(fenetre_produit)
                 formulaire_produit.pack(fill="y", expand=False)
@@ -518,51 +569,8 @@ def formulaire_connexion():
                     print("combobox dropdown clicked:", choice)
                 combobox_var = customtkinter.StringVar(value="Electronique")
                 combobox = customtkinter.CTkComboBox(formulaire_produit, values=["Véhicules", "Electronique", "Mode & Beauté", "Immobilier", "Electroménager",
-                                                     "Pour la maison", "Sports & loisirs", "Services & Emplois"], command=combobox_callback, variable=combobox_var, width=200, height=40, corner_radius=20)
+                                                                                 "Pour la maison", "Sports & loisirs", "Services & Emplois"], command=combobox_callback, variable=combobox_var, width=200, height=40, corner_radius=20)
                 combobox.pack(pady=2)
-
-                def ajouter_produit():
-                    photo = ajouter_image_label.get()
-                    nom = nom_produit.get().strip()
-                    Type = combobox.get().strip()
-                    quantite = qte_produit.get().strip()
-                    prix = prix_produit.get().strip()
-                    date = date_produit.get().strip()
-                    description = description_produit.get(
-                        "1.0", "end-1c").strip()
-
-                    if not nom or not Type or not quantite or not prix or not photo or not date or not description:
-                        messagebox.showwarning(
-                            "Erreur", "Veuillez renseignez toutes les information du produit")
-                        return
-                    session = session_factory()
-                    try:
-                        session.execute(
-                            text("""
-                                INSERT INTO produit (photo, nom, type, stock, prix, date_de_peremption, description)
-                                VALUES (:photo, :nom,:type, :stock, :prix, :date_de_peremption, :description)
-                            """),
-                            {
-                                "photo": photo,
-                                "nom": nom,
-                                "type": Type,
-                                "stock": quantite,
-                                "prix": prix,
-                                "date_de_peremption": date,
-                                "description": description,
-                            },
-                        )
-                        session.commit()
-                        messagebox.showinfo(
-                            "Produit ajouté", f"{nom} a été ajouté à la boutique")
-                        revenir()
-                    except Exception as e:
-                        session.rollback()
-                        messagebox.showerror(
-                            "Erreur", f"Impossible d'ajouter le produit  {e}")
-                    finally:
-                        session.close()
-
                 button = customtkinter.CTkButton(
                     formulaire_produit, text="Ajouter le produit", command=two_funcs(ajouter_produit, revenir))
                 button.pack(side="right", padx=20, pady=20)
@@ -581,29 +589,38 @@ def formulaire_connexion():
             header = tk.Frame(gestion_boutique, bg="#17324d", height=100)
             header.pack(fill="x")
             header.grid_columnconfigure(1, weight=1)
-            label = customtkinter.CTkLabel(
-                header, text=nom_de_boutique, anchor="w", font=("Times new roman", 50, "bold"), text_color="#242a34", width=100, height=20)
-            label.grid(row=0, column=0, padx=10, pady=2, sticky="w")
-            icone_profile = customtkinter.CTkImage(light_image=Image.open(
-                Path(__file__).with_name("accueil.png")), size=(25, 25))
 
-            button2 = customtkinter.CTkButton(
-                header, text="Accueil", image=icone_profile, compound="left", command=retour_accueil, border_color="#17324d", fg_color="white", text_color="#242a34")
+            label = customtkinter.CTkLabel(
+                header, text=nom_de_boutique, anchor="w", font=("Times new roman", 50, "bold"), text_color="white", width=150, height=40)
+            label.grid(row=0, column=0, padx=10, pady=2, sticky="w")
+
+            icone_profile = customtkinter.CTkImage(light_image=Image.open(
+                Path(__file__).with_name("en-savoir-plus.png")), size=(30, 30))
+
+            icone_accueil = customtkinter.CTkImage(light_image=Image.open(
+                Path(__file__).with_name("accueil.png")), size=(30, 30))
+
+            button2 = customtkinter.CTkButton(header, text="Accueil", image=icone_accueil, compound="left",
+                                              command=retour_accueil, border_color="#17324d", fg_color="white", text_color="#242a34")
             button2.grid(row=0, column=1, padx=10, pady=2, sticky="e")
-            button2.configure(width=150, height=60, corner_radius=50)
+            button2.configure(width=100, height=60, corner_radius=20)
+
             button3 = customtkinter.CTkButton(
                 header, text="Ajoueter une annonce", image=icone_profile, compound="left", command=ajouter_annonce, border_color="#17324d", fg_color="white", text_color="#242a34")
             button3.grid(row=0, column=2, padx=10, pady=2, sticky="e")
-            button3.configure(width=150, height=60, corner_radius=50)
+            button3.configure(width=100, height=60, corner_radius=20)
 
-            body = ctk.CTkFrame(fenetre, fg_color="#17324d")
+            body = ctk.CTkFrame(gestion_boutique, fg_color="#17324d")
             body.pack(fill="both", expand=True)
 
-            onglets = ctk.CTkTabview(body, fg_color="black", corner_radius=30, segmented_button_fg_color="white",
-                                     segmented_button_unselected_color="#7a8662", text_color="#242a34")
+            onglets = ctk.CTkTabview(body, fg_color="black", anchor="w", corner_radius=40,
+                                     segmented_button_fg_color="white", segmented_button_unselected_color="#2a9d8f", text_color="black")
             onglets.pack(fill="both", expand=True, padx=20, pady=20)
-            tab_produits = onglets.add("Mes produits")
-            tab_ventes = onglets.add("Historique des ventes")
+            onglets.add("Mes produits")
+            appliquer_filtre(onglets.tab("Mes produits"),)
+            onglets.add("Historique des ventes")
+
+        nom_de_boutique = nom_boutique or nom_boutique_revendeur.get().strip()
 
         header = tk.Frame(espace_revendeur, bg="#17324d", height=100)
         header.pack(fill="x")
@@ -620,22 +637,22 @@ def formulaire_connexion():
 
         body = ctk.CTkFrame(espace_revendeur, fg_color="#17324d")
         body.pack(fill="both", expand=True)
+
         # onglets
+
         onglets = ctk.CTkTabview(body,
-                                 fg_color="black", anchor="w", corner_radius=40, segmented_button_fg_color="white", segmented_button_unselected_color="#2a9d8f", text_color="#242a34")
-        onglets.pack(fill="both", expand=True, padx=20, pady=20)
+                                 fg_color="black", anchor="w", corner_radius=40, segmented_button_fg_color="white", segmented_button_unselected_color="#2a9d8f", text_color="black")
+        onglets.pack(fill="both", expand=True, padx=10, pady=10)
         onglets._segmented_button.configure(
-            width=180, height=55, font=("Times New Roman", 20))
+            width=150, height=60, font=("Times New Roman", 20))
 
-        # onglets
+        # onglets1
+
         onglets.add("Acceuil")
-        icone_acceuil = customtkinter.CTkImage(
-            light_image=Image.open(Path(__file__).with_name("accueil.png")),
-            size=(25, 25),
-        )
+        icone_acceuil = customtkinter.CTkImage(light_image=Image.open(
+            Path(__file__).with_name("accueil.png")), size=(25, 25),)
         onglets._segmented_button._buttons_dict["Acceuil"].configure(
-            image=icone_acceuil, compound="left")
-
+            image=icone_acceuil, compound="top")
         afficher_produit = ctk.CTkScrollableFrame(
             onglets.tab("Acceuil"), fg_color="black")
         afficher_produit.pack(fill="both", expand=True, pady=10, padx=10)
@@ -645,52 +662,97 @@ def formulaire_connexion():
         icone_vehicule = customtkinter.CTkImage(light_image=Image.open(
             Path(__file__).with_name("voiture-musclee.png")), size=(25, 25),)
         onglets._segmented_button._buttons_dict["Véhicules"].configure(
-            image=icone_vehicule, compound="left")
+            image=icone_vehicule, compound="top")
+        appliquer_filtre(onglets.tab("Véhicules"), "Véhicules")
 
         onglets.add("Electronique")
         icone_electronic = customtkinter.CTkImage(
             light_image=Image.open(Path(__file__).with_name("moniteur.png")), size=(25, 25))
         onglets._segmented_button._buttons_dict["Electronique"].configure(
-            image=icone_electronic, compound="left")
+            image=icone_electronic, compound="top")
+        appliquer_filtre(onglets.tab("Electronique"), "Electronique")
 
         onglets.add("Mode & Beauté")
         icone_mode = customtkinter.CTkImage(
             light_image=Image.open(Path(__file__).with_name("mascara.png")), size=(25, 25))
         onglets._segmented_button._buttons_dict["Mode & Beauté"].configure(
-            image=icone_mode, compound="left")
+            image=icone_mode, compound="top")
+        appliquer_filtre(onglets.tab("Mode & Beauté"), "Mode & Beauté")
 
         onglets.add("Immobilier")
         icone_immobilier = customtkinter.CTkImage(
             light_image=Image.open(Path(__file__).with_name("real-estate.png")), size=(25, 25))
         onglets._segmented_button._buttons_dict["Immobilier"].configure(
-            image=icone_immobilier, compound="left")
+            image=icone_immobilier, compound="top")
+        appliquer_filtre(onglets.tab("Immobilier"), "Immobilier")
 
         onglets.add("Electroménager")
         icone_electromenage = customtkinter.CTkImage(
             light_image=Image.open(Path(__file__).with_name("home-appliance.png")), size=(25, 25))
         onglets._segmented_button._buttons_dict["Electroménager"].configure(
-            image=icone_electromenage, compound="left")
+            image=icone_electromenage, compound="top")
+        appliquer_filtre(onglets.tab("Electroménager"), "Electroménager")
 
         onglets.add("Pour la maison")
         icone_maison = customtkinter.CTkImage(
             light_image=Image.open(Path(__file__).with_name("chambre-a-coucher.png")), size=(25, 25))
         onglets._segmented_button._buttons_dict["Pour la maison"].configure(
-            image=icone_maison, compound="left")
+            image=icone_maison, compound="top")
+        appliquer_filtre(onglets.tab("Pour la maison"), "Pour la maison")
 
         onglets.add("Sports & loisirs")
         icone_sport = customtkinter.CTkImage(
             light_image=Image.open(Path(__file__).with_name("des-sports.png")), size=(25, 25))
         onglets._segmented_button._buttons_dict["Sports & loisirs"].configure(
-            image=icone_sport, compound="left")
+            image=icone_sport, compound="top")
+        appliquer_filtre(onglets.tab("Sports & loisirs"), "Sports & loisirs")
 
         onglets.add("Service & Emplois")
         icone_electronic = customtkinter.CTkImage(
             light_image=Image.open(Path(__file__).with_name("public-service.png")), size=(25, 25))
         onglets._segmented_button._buttons_dict["Service & Emplois"].configure(
-            image=icone_electronic, compound="left")
+            image=icone_electronic, compound="top")
+        appliquer_filtre(onglets.tab("Service & Emplois"), "Service & Emplois")
 
         onglets.set("Acceuil")
 
+    tabview.add("Se connecter en tant que \n revendeur")
+    nom_revendeur_label = customtkinter.CTkLabel(
+        tabview.tab("Se connecter en tant que \n revendeur"), text="Nom")
+    nom_revendeur_label.pack(pady=2)
+    nom_revendeur = customtkinter.CTkEntry(tabview.tab(
+        "Se connecter en tant que \n revendeur"), width=200, height=40)
+    nom_revendeur.pack(pady=2)
+    prénom_revendeur_label = customtkinter.CTkLabel(tabview.tab(
+        "Se connecter en tant que \n revendeur"), text="Prénom")
+    prénom_revendeur_label.pack(pady=2)
+    prénom_revendeur = customtkinter.CTkEntry(tabview.tab(
+        "Se connecter en tant que \n revendeur"), width=200, height=40)
+    prénom_revendeur.pack(pady=2)
+    mots_de_passe_revendeur_label = customtkinter.CTkLabel(
+        tabview.tab("Se connecter en tant que \n revendeur"), text="Mots_de_passe")
+    mots_de_passe_revendeur_label.pack(pady=2)
+    mots_de_passe_revendeur = customtkinter.CTkEntry(tabview.tab(
+        "Se connecter en tant que \n revendeur"), width=200, height=40)
+    mots_de_passe_revendeur.pack(pady=2)
+    num_téléphone_revendeur_label = customtkinter.CTkLabel(
+        tabview.tab("Se connecter en tant que \n revendeur"), text="Numéro de téléphone")
+    num_téléphone_revendeur_label.pack(pady=2)
+    num_téléphone_revendeur = customtkinter.CTkEntry(tabview.tab(
+        "Se connecter en tant que \n revendeur"), width=200, height=40)
+    num_téléphone_revendeur.pack(pady=2)
+    nom_boutique_revendeur_label = customtkinter.CTkLabel(
+        tabview.tab("Se connecter en tant que \n revendeur"), text="Nom de la boutique")
+    nom_boutique_revendeur_label.pack(pady=2)
+    nom_boutique_revendeur = customtkinter.CTkEntry(tabview.tab(
+        "Se connecter en tant que \n revendeur"), width=200, height=40)
+    nom_boutique_revendeur.pack(pady=2)
+    textbox_label = customtkinter.CTkLabel(tabview.tab(
+        "Se connecter en tant que \n revendeur"), text="Veuillez d'écrire votre boutique")
+    textbox_label.pack(pady=2)
+    textbox = customtkinter.CTkTextbox(tabview.tab(
+        "Se connecter en tant que \n revendeur"), height=100)
+    textbox.pack(pady=2)
     # BUTTON REVENDEUR
     button = customtkinter.CTkButton(tabview.tab("Se connecter en tant que \n revendeur"),
                                      text="Créer un compte", command=two_funcs(valider_connexion_revendeur, espace_revendeur))
@@ -704,27 +766,6 @@ def formulaire_connexion():
                      fg_color="#fb3640", corner_radius=10)
 
     # COMPTE EXISTANT
-
-    tabview.add("Se connecter à un compte \n déjà existant")
-    nom_label = customtkinter.CTkLabel(
-        tabview.tab("Se connecter à un compte \n déjà existant"), text="Nom")
-    nom_label.pack(pady=2)
-    nom_connexion = customtkinter.CTkEntry(tabview.tab(
-        "Se connecter à un compte \n déjà existant"), width=200, height=40)
-    nom_connexion.pack(pady=2)
-    prénom_label = customtkinter.CTkLabel(tabview.tab(
-        "Se connecter à un compte \n déjà existant"), text="Prénom")
-    prénom_label.pack(pady=2)
-    prénom_connexion = customtkinter.CTkEntry(tabview.tab(
-        "Se connecter à un compte \n déjà existant"), width=200, height=40)
-    prénom_connexion.pack(pady=2)
-    mots_de_passe_label = customtkinter.CTkLabel(
-        tabview.tab("Se connecter à un compte \n déjà existant"), text="Mots de passe")
-    mots_de_passe_label.pack(pady=2)
-    mots_de_passe_connexion = customtkinter.CTkEntry(tabview.tab(
-        "Se connecter à un compte \n déjà existant"), width=200, height=40)
-    mots_de_passe_connexion.pack(pady=2)
-
     def valider_connexion_existant():
         nom = nom_connexion.get().strip()
         prenom = prénom_connexion.get().strip()
@@ -751,14 +792,14 @@ def formulaire_connexion():
 
             vendeur = session.execute(
                 text("""
-                    SELECT boutique FROM vendeur
+                    SELECT * FROM vendeur
                     WHERE nom = :nom AND prénom = :prenom AND mots_de_passe = :mots_de_passe
                 """),
                 {"nom": nom, "prenom": prenom, "mots_de_passe": mots_de_passe},
             ).fetchone()
             if vendeur:
-                fenetre_connexion.destroy()
-                espace_revendeur()
+                fenetre_connexion.withdraw()
+                espace_revendeur(id_boutique=vendeur[1])
                 return
 
             messagebox.showerror(
@@ -769,6 +810,25 @@ def formulaire_connexion():
         finally:
             session.close()
 
+    tabview.add("Se connecter à un compte \n déjà existant")
+    nom_label = customtkinter.CTkLabel(
+        tabview.tab("Se connecter à un compte \n déjà existant"), text="Nom")
+    nom_label.pack(pady=2)
+    nom_connexion = customtkinter.CTkEntry(tabview.tab(
+        "Se connecter à un compte \n déjà existant"), width=200, height=40)
+    nom_connexion.pack(pady=2)
+    prénom_label = customtkinter.CTkLabel(tabview.tab(
+        "Se connecter à un compte \n déjà existant"), text="Prénom")
+    prénom_label.pack(pady=2)
+    prénom_connexion = customtkinter.CTkEntry(tabview.tab(
+        "Se connecter à un compte \n déjà existant"), width=200, height=40)
+    prénom_connexion.pack(pady=2)
+    mots_de_passe_label = customtkinter.CTkLabel(
+        tabview.tab("Se connecter à un compte \n déjà existant"), text="Mots de passe")
+    mots_de_passe_label.pack(pady=2)
+    mots_de_passe_connexion = customtkinter.CTkEntry(tabview.tab(
+        "Se connecter à un compte \n déjà existant"), width=200, height=40)
+    mots_de_passe_connexion.pack(pady=2)
     button8 = customtkinter.CTkButton(
         tabview.tab("Se connecter à un compte \n déjà existant"), text="Se connecter", command=valider_connexion_existant)
     button8.pack(side="right", padx=20, pady=20)
@@ -785,7 +845,6 @@ fenetre = tk.Tk()
 fenetre.title("Site de vente")
 fenetre.geometry("800x600")
 fenetre.resizable(True, True)
-
 
 # EN TETE
 
@@ -805,9 +864,9 @@ icone_profile = customtkinter.CTkImage(
     size=(25, 25),
 )
 button2 = customtkinter.CTkButton(
-    header, text="Se connecter", image=icone_profile, font=("Times new roman ", 20), compound="left", command=formulaire_connexion, border_color="#17324d", fg_color="#f4a261", text_color="#242a34")
+    header, text="Se connecter", image=icone_profile, font=("Times new roman ", 40), compound="left", command=formulaire_connexion, border_color="#17324d", fg_color="#f4a261", text_color="#242a34")
 button2.grid(row=0, column=2, padx=10, pady=2, sticky="e")
-button2.configure(width=40, height=80, corner_radius=50)
+button2.configure(width=50, height=80, corner_radius=50)
 
 body = ctk.CTkFrame(fenetre, fg_color="#17324d")
 body.pack(fill="both", expand=True)
@@ -823,70 +882,71 @@ onglets._segmented_button.configure(
 # onglets1
 
 onglets.add("Acceuil")
-icone_acceuil = customtkinter.CTkImage(
-    light_image=Image.open(Path(__file__).with_name("accueil.png")),
-    size=(25, 25),
-)
+icone_acceuil = customtkinter.CTkImage(light_image=Image.open(
+    Path(__file__).with_name("accueil.png")), size=(25, 25),)
 onglets._segmented_button._buttons_dict["Acceuil"].configure(
     image=icone_acceuil, compound="top")
-
 afficher_produit = ctk.CTkScrollableFrame(
     onglets.tab("Acceuil"), fg_color="black")
 afficher_produit.pack(fill="both", expand=True, pady=10, padx=10)
 charger_produit(afficher_produit)
-
 
 onglets.add("Véhicules")
 icone_vehicule = customtkinter.CTkImage(light_image=Image.open(
     Path(__file__).with_name("voiture-musclee.png")), size=(25, 25),)
 onglets._segmented_button._buttons_dict["Véhicules"].configure(
     image=icone_vehicule, compound="top")
+appliquer_filtre(onglets.tab("Véhicules"), "Véhicules")
+
 
 onglets.add("Electronique")
 icone_electronic = customtkinter.CTkImage(
     light_image=Image.open(Path(__file__).with_name("moniteur.png")), size=(25, 25))
 onglets._segmented_button._buttons_dict["Electronique"].configure(
     image=icone_electronic, compound="top")
+appliquer_filtre(onglets.tab("Electronique"), "Electronique")
 
 onglets.add("Mode & Beauté")
 icone_mode = customtkinter.CTkImage(
     light_image=Image.open(Path(__file__).with_name("mascara.png")), size=(25, 25))
 onglets._segmented_button._buttons_dict["Mode & Beauté"].configure(
     image=icone_mode, compound="top")
-
+appliquer_filtre(onglets.tab("Mode & Beauté"), "Mode & Beauté")
 
 onglets.add("Immobilier")
 icone_immobilier = customtkinter.CTkImage(
     light_image=Image.open(Path(__file__).with_name("real-estate.png")), size=(25, 25))
 onglets._segmented_button._buttons_dict["Immobilier"].configure(
     image=icone_immobilier, compound="top")
-
+appliquer_filtre(onglets.tab("Immobilier"), "Immobilier")
 
 onglets.add("Electroménager")
 icone_electromenage = customtkinter.CTkImage(
     light_image=Image.open(Path(__file__).with_name("home-appliance.png")), size=(25, 25))
 onglets._segmented_button._buttons_dict["Electroménager"].configure(
     image=icone_electromenage, compound="top")
-
+appliquer_filtre(onglets.tab("Electroménager"), "Electroménager")
 
 onglets.add("Pour la maison")
 icone_maison = customtkinter.CTkImage(
     light_image=Image.open(Path(__file__).with_name("chambre-a-coucher.png")), size=(25, 25))
 onglets._segmented_button._buttons_dict["Pour la maison"].configure(
     image=icone_maison, compound="top")
-
+appliquer_filtre(onglets.tab("Pour la maison"), "Pour la maison")
 
 onglets.add("Sports & loisirs")
 icone_sport = customtkinter.CTkImage(
     light_image=Image.open(Path(__file__).with_name("des-sports.png")), size=(25, 25))
 onglets._segmented_button._buttons_dict["Sports & loisirs"].configure(
     image=icone_sport, compound="top")
+appliquer_filtre(onglets.tab("Sports & loisirs"), "Sports & loisirs")
 
 onglets.add("Service & Emplois")
 icone_electronic = customtkinter.CTkImage(
     light_image=Image.open(Path(__file__).with_name("public-service.png")), size=(25, 25))
 onglets._segmented_button._buttons_dict["Service & Emplois"].configure(
     image=icone_electronic, compound="top")
+appliquer_filtre(onglets.tab("Service & Emplois"), "Service & Emplois")
 
 onglets.set("Acceuil")
 fenetre.mainloop()
