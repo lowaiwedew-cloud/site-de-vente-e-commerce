@@ -195,11 +195,11 @@ def formulaire_connexion():
         fenetre_connexion.destroy()
 
     def valider_connexion_client():
-        nom_client = nom_client.get().strip()
-        prenom_client = prénom_client.get().strip()
-        mots_de_passe_client = mots_de_passe_client.get().strip()
-        num_téléphone_client = num_téléphone_client.get().strip()
-        if not nom_client or not prenom_client or not mots_de_passe_client or not num_téléphone_client:
+        nom = nom_client.get().strip()
+        prenom = prénom_client.get().strip()
+        mots_de_passe = mots_de_passe_client.get().strip()
+        num_téléphone = num_téléphone_client.get().strip()
+        if not nom or not prenom or not mots_de_passe or not num_téléphone:
             messagebox.showwarning(
                 "Erreur", "veuillez remplir tous les champs")
             return
@@ -211,15 +211,15 @@ def formulaire_connexion():
                             VALUES (:nom, :prénom, :mots_de_passe, :num_téléphone)
                         """),
                 {
-                    "nom": nom_client,
-                    "prénom": prenom_client,
-                    "mots_de_passe": mots_de_passe_client,
-                    "num_téléphone": num_téléphone_client
+                    "nom": nom,
+                    "prénom": prenom,
+                    "mots_de_passe": mots_de_passe,
+                    "num_téléphone": num_téléphone,
                 },
             )
             session.commit()
             messagebox.showinfo(
-                "compte créé", f"Bienvenue {nom_client} {prenom_client}.")
+                "compte créé", f"Bienvenue {nom} {prenom}")
         except Exception as e:
             session.rollback()
             messagebox.showerror(
@@ -266,12 +266,13 @@ def formulaire_connexion():
     button.configure(width=200, height=60,
                      fg_color="#fb3640", corner_radius=10)
 
-    def espace_client():
-        fenetre_connexion.update_idlettasks()
+    def espace_client(id_acheteur):
+        fenetre_connexion.update_idletasks()
         largeur = fenetre_connexion.winfo_width()
         hauteur = fenetre_connexion.winfo_height()
         x = fenetre_connexion.winfo_x()
         y = fenetre_connexion.winfo_y()
+        fenetre_connexion.withdraw()
         espace_client = tk.Toplevel()
         espace_client.title("Espace Client")
         espace_client.geometry(f"{largeur}x{hauteur}+{x}+{y}")
@@ -289,12 +290,13 @@ def formulaire_connexion():
         barre_recherche.grid(row=0, column=1, padx=10, pady=2)
 
         icone_profile = customtkinter.CTkImage(
-            light_image=Image.open(
-                Path(__file__).with_name("utilisateur.png")),
-            size=(25, 25),
-        )
+            light_image=Image.open(Path(__file__).with_name("panier.png")), size=(25, 25),)
+
+        def panier():
+            messagebox.showinfo("Panier", "Bientôt disponible")
+
         button2 = customtkinter.CTkButton(
-            header, text="Se connecter", image=icone_profile, font=("Times new roman ", 40), compound="left", command=formulaire_connexion, border_color="#17324d", fg_color="#f4a261", text_color="#242a34")
+            header, text="Mon panier", image=icone_profile, font=("Times new roman ", 40), compound="left", command=panier, border_color="#17324d", fg_color="#f4a261", text_color="#242a34")
         button2.grid(row=0, column=2, padx=10, pady=2, sticky="e")
         button2.configure(width=50, height=80, corner_radius=50)
 
@@ -806,8 +808,7 @@ def formulaire_connexion():
                 {"nom": nom, "prenom": prenom, "mots_de_passe": mots_de_passe},
             ).fetchone()
             if acheteur:
-                fenetre_connexion.destroy()
-                espace_client()
+                espace_client(acheteur.id)
                 return
 
             vendeur = session.execute(
